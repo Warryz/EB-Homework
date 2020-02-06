@@ -7,8 +7,8 @@ random_surnames = ['Hans', 'Peter', 'Karl', 'Heinz', 'Klaus', 'Werner', 'Wolfang
 random_givennames = ['Müller', 'Fischer', 'Schmidt', 'Becker', 'Schmitz', 'Hoffmann', 'Klein', 'Meyer', 'Schneider', 'Koch', 'Jansen', 'Peters']
 
 # Generate this number of entries:
-number_of_entries = 5
-
+number_of_entries = 5_000
+number_of_readings = 10
 
 def random_date(start, end):
     """
@@ -42,14 +42,21 @@ with open('example_data.sql', 'w+', encoding="utf-8") as target:
         surname = random.choice(random_surnames)
         sql_str_customers += f"({x}, '{givenname}', '{surname}'){delimiter}\n"
 
-        # Add the Statement for the readings table, source: https://stackoverflow.com/questions/553303/generate-a-random-date-between-two-other-dates
-        d1 = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
-        d2 = datetime.strptime('1/1/2020 4:50 AM', '%m/%d/%Y %I:%M %p')
 
-        rnd_date = random_date(d1, d2)
-        value = random.randint(0,150)
-        # ID, Measure_Date, Value
-        sql_str_readings += f"({x}, '{rnd_date}', {value}){delimiter}\n"
+        for n in range(0, number_of_readings):
+            # Add the Statement for the readings table, source: https://stackoverflow.com/questions/553303/generate-a-random-date-between-two-other-dates
+            d1 = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
+            d2 = datetime.strptime('1/1/2020 4:50 AM', '%m/%d/%Y %I:%M %p')
+
+            rnd_date = random_date(d1, d2)
+            value = random.randint(0,150)
+            # ID, Measure_Date, Value
+            if x == number_of_entries and n == number_of_readings-1:
+                delimiter = ';'
+            else:
+                delimiter = ','
+            # Create the insert statement for the readings.
+            sql_str_readings += f"({x}, {n}, '{rnd_date}', {value}){delimiter}\n"
 
     target.write(sql_str_customers)
     target.write(sql_str_readings)
