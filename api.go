@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	db *sql.DB
+	db  *sql.DB
+	err error
 )
 
 // Customer - struct for customer data
@@ -34,27 +35,29 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 func returnCustomer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	customerID, err := strconv.ParseInt(vars["id"], 10, 32)
+	customerID, parseErr := strconv.ParseInt(vars["id"], 10, 32)
 
-	if err != nil {
-		println("Error while parsing a customer id!")
+	if parseErr != nil {
+		println("dbError while parsing a customer id!")
 	} else {
 		// Prepare statement for reading data
-		stmtOut, err := db.Prepare("SELECT Customers_ID, Surname, Givenname FROM Customers WHERE Customer_ID = ?")
-		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
+		stmtOut, dbErr := db.Prepare("SELECT Customers_ID, Surname, Givenname FROM Customers WHERE Customers_ID = ?")
+		if dbErr != nil {
+			fmt.Println("Error while creating the sql statement")
 		}
 		defer stmtOut.Close()
 
 		var customerData Customer // we "scan" the result in here
 
-		// Query the square-number of the customer id store it in customerdata
-		err = stmtOut.QueryRow(customerID).Scan(&customerData.ID, &customerData.Surname, customerData.Givenname)
-		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
-		}
-		fmt.Printf("The name of customer %d is: %s %s", customerData.ID, customerData.Givenname, customerData.Surname)
+		// Query the customer id store it in customerdata
+		dbErr = stmtOut.QueryRow(customerID).Scan(&customerData.ID, &customerData.Surname, &customerData.Givenname)
+		if dbErr != nil {
+			fmt.Println("unable to query user", customerID, dbErr)
+		} else {
+			fmt.Printf("The name of customer %d is: %s %s", customerData.ID, customerData.Givenname, customerData.Surname)
 
+			json.NewEncoder(w).Encode(customerData)
+		}
 	}
 
 }
@@ -96,7 +99,7 @@ func handleRequests() {
 
 func main() {
 
-	db, err := sql.Open("mysql", "admin:admin@tcp(123.4.5.6:3306)/database-1")
+	db, err = sql.Open("mysql", "admin:admin@tcp(123.4.5.6)/hausarbeit")
 	if err != nil {
 		panic(err.Error()) // Just for example purpose. You should use proper error handling instead of panic
 	}
@@ -105,6 +108,8 @@ func main() {
 	err = db.Ping()
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
+	} else {
+		fmt.Println("DB connection established!")
 	}
 	handleRequests()
 }
