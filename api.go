@@ -24,13 +24,51 @@ var (
 // Customer - struct for customer data
 type Customer struct {
 	ID        int    `json:"Id"`
-	Surname   string `json:"Title"`
-	Givenname string `json:"desc"`
+	Surname   string `json:"Surname"`
+	Givenname string `json:"Givenname"`
+}
+
+// Readings - struct for read data
+type Readings struct {
+	MeasureID    int    `json:"MeasureID"`
+	MeasureDate  string `json:"MeasureDate"`
+	MeasureValue string `json:"MeasureValue"`
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the API!")
 	fmt.Println("Endpoint Hit: Main API page")
+}
+
+func returnCustomerData(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	customerID, parseErr := strconv.ParseInt(vars["id"], 10, 32)
+
+	if parseErr != nil {
+		println("dbError while parsing a customer id!")
+	} else {
+		// Prepare statement for reading data
+		stmtOut, dbErr := db.Prepare("SELECT Measure_ID, Measure_Date, Value FROM Readings WHERE Customers_ID_FK = ?;")
+		if dbErr != nil {
+			fmt.Println("Error while creating the sql statement")
+		}
+		defer stmtOut.Close()
+
+		var customerData Customer // we "scan" the result in here
+
+		// Query the customer id store it in customerdata
+
+		// Continue here!!! Need to save the data from the db with a loop
+		dbErr = stmtOut.QueryRow(customerID).Scan(&customerData.ID, &customerData.Surname, &customerData.Givenname)
+		if dbErr != nil {
+			fmt.Println("unable to query user", customerID, dbErr)
+		} else {
+			fmt.Printf("The name of customer %d is: %s %s", customerData.ID, customerData.Givenname, customerData.Surname)
+
+			json.NewEncoder(w).Encode(customerData)
+		}
+	}
+
 }
 
 func returnCustomer(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +132,7 @@ func handleRequests() {
 	// myRouter.HandleFunc("/article", createNewArticle).Methods("POST")
 	// myRouter.HandleFunc("/article/{id}", deleteArticle).Methods("DELETE")
 	myRouter.HandleFunc("/customer/{id}", returnCustomer)
+	myRouter.HandleFunc("/customerdata/{id}", returnCustomerData)
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
 }
 
