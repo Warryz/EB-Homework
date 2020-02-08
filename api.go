@@ -1,4 +1,3 @@
-// main.go
 package main
 
 // See: https://github.com/TutorialEdge/create-rest-api-in-go-tutorial
@@ -7,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -117,37 +115,9 @@ func returnCustomer(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func createNewCustomer(w http.ResponseWriter, r *http.Request) {
-	// get the body of our POST request
-	// unmarshal this into a new Article struct
-	// append this to our Articles array.
-	reqBody, _ := ioutil.ReadAll(r.Body)
-	var cus Customer
-	json.Unmarshal(reqBody, &cus)
-	// update our global Articles array to include
-	// our new Article
-
-	json.NewEncoder(w).Encode(cus)
-}
-
-// func deleteArticle(w http.ResponseWriter, r *http.Request) {
-// 	vars := mux.Vars(r)
-// 	id := vars["id"]
-
-// 	for index, article := range Articles {
-// 		if article.ID == id {
-// 			Articles = append(Articles[:index], Articles[index+1:]...)
-// 		}
-// 	}
-
-// }
-
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
-	// myRouter.HandleFunc("/articles", returnAllArticles)
-	// myRouter.HandleFunc("/article", createNewArticle).Methods("POST")
-	// myRouter.HandleFunc("/article/{id}", deleteArticle).Methods("DELETE")
 	myRouter.HandleFunc("/customer/{id}", returnCustomer)
 	myRouter.HandleFunc("/customerdata/{id}", returnCustomerData)
 	log.Fatal(http.ListenAndServe(":10000", myRouter))
