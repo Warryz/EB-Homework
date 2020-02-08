@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bradfitz/gomemcache/memcache"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 )
@@ -18,6 +20,9 @@ import (
 var (
 	db  *sql.DB
 	err error
+
+	// Memcached variable
+	mc = *memcache.New("hausarbeit-eb-memcached.dldis0.cfg.euc1.cache.amazonaws.com:11211")
 )
 
 // Customer - struct for customer data
@@ -135,9 +140,42 @@ func handleRequests() {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func main() {
+func loadDatabaseIntoMemory() {
+	// Load the customer data into cached
+	stmtOut, dbErr := db.Prepare("SELECT * FROM Customers;")
+	if dbErr != nil {
+		fmt.Println("Error while creating the sql statement")
+	}
+	defer stmtOut.Close()
+
+	// Query the customer id store it in customerdata
+	rows, dbErr := stmtOut.Query()
+	defer rows.Close()
+
+	var customerData Customer // we "scan" the result in here
+
+	if dbErr != nil {
+		fmt.Println("unable to load user into memcached", dbErr)
+	} else {
+
+		for rows.Next() {
+			// ID, Surname, givenname
+			err := rows.Scan(&customerData.ID, &customerData.Surname, &customerData.Givenname)
+			if err != nil {
+				fmt.Println("unable to parse user row into memcached", err)
+			}
+
+			// Save the loaded data to memcached
+			// mc.Set(&memcache.Item{Key: strconv.Itoa(customerData.ID), Value: []byte(&customerData)})
+			mc.Set(&memcache.Item{Key: strconv.Itoa(customerData.ID), Value: []byte(customerData.Givenname, customerData.Surname, customerData.ID)})
+		}
+	}
+}
+
+func initSetup() {
 
 	db, err = sql.Open("mysql", "admin:admin@tcp(123.4.5.6)/hausarbeit")
+	db, err = sql.Open("mysql", "adminmariadb:k9yAbS0zPa4LszXX0Wu1@tcp(database-1.c1ea2yoncwac.eu-central-1.rds.amazonaws.com)/hausarbeit")
 	if err != nil {
 		panic(err.Error()) // Just for example purpose. You should use proper error handling instead of panic
 	}
@@ -149,5 +187,12 @@ func main() {
 	} else {
 		fmt.Println("DB connection established!")
 	}
+
+	// Load all from the db into memcached
+	loadDatabaseIntoMemory()
+}
+
+func main() {
+	initSetup()
 	handleRequests()
 }
