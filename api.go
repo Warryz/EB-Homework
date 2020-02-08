@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -120,7 +121,18 @@ func handleRequests() {
 	myRouter.HandleFunc("/", homePage)
 	myRouter.HandleFunc("/customer/{id}", returnCustomer)
 	myRouter.HandleFunc("/customerdata/{id}", returnCustomerData)
-	log.Fatal(http.ListenAndServe(":10000", myRouter))
+
+	// Needed to disable connection timeouts
+	srv := &http.Server{
+		Addr:         ":10000",
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Handler:      myRouter,
+	}
+
+	srv.SetKeepAlivesEnabled(false)
+
+	log.Fatal(srv.ListenAndServe())
 }
 
 func main() {
