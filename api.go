@@ -165,17 +165,24 @@ func loadDatabaseIntoMemory() {
 				fmt.Println("unable to parse user row into memcached", err)
 			}
 
-			// Save the loaded data to memcached
-			// mc.Set(&memcache.Item{Key: strconv.Itoa(customerData.ID), Value: []byte(&customerData)})
-			mc.Set(&memcache.Item{Key: strconv.Itoa(customerData.ID), Value: []byte(customerData.Givenname, customerData.Surname, customerData.ID)})
+			// Save the loaded data to memcached by converting it to json: https://stackoverflow.com/questions/8270816/converting-go-struct-to-json
+			b, err := json.Marshal(customerData)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			// Format the key and
+			key := fmt.Sprintf("customerData_id_%d", customerData.ID)
+			//  Save the data to memcached servers
+			mc.Set(&memcache.Item{Key: key, Value: []byte(b)})
 		}
+		fmt.Println("Finished cache creation for customer data.")
 	}
 }
 
 func initSetup() {
 
 	db, err = sql.Open("mysql", "admin:admin@tcp(123.4.5.6)/hausarbeit")
-	db, err = sql.Open("mysql", "adminmariadb:k9yAbS0zPa4LszXX0Wu1@tcp(database-1.c1ea2yoncwac.eu-central-1.rds.amazonaws.com)/hausarbeit")
 	if err != nil {
 		panic(err.Error()) // Just for example purpose. You should use proper error handling instead of panic
 	}
