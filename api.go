@@ -32,7 +32,15 @@ type Customer struct {
 type Readings struct {
 	MeasureID    int    `json:"MeasureID"`
 	MeasureDate  string `json:"MeasureDate"`
-	MeasureValue string `json:"MeasureValue"`
+	MeasureValue int    `json:"MeasureValue"`
+}
+
+type myReadings struct {
+	Measures []Readings
+}
+
+func (reading *myReadings) AddItem(item Readings) {
+	reading.Measures = append(reading.Measures, item)
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
@@ -54,18 +62,27 @@ func returnCustomerData(w http.ResponseWriter, r *http.Request) {
 		}
 		defer stmtOut.Close()
 
-		var customerData Customer // we "scan" the result in here
-
 		// Query the customer id store it in customerdata
 
-		// Continue here!!! Need to save the data from the db with a loop
-		dbErr = stmtOut.QueryRow(customerID).Scan(&customerData.ID, &customerData.Surname, &customerData.Givenname)
-		if dbErr != nil {
-			fmt.Println("unable to query user", customerID, dbErr)
-		} else {
-			fmt.Printf("The name of customer %d is: %s %s", customerData.ID, customerData.Givenname, customerData.Surname)
+		rows, dbErr := stmtOut.Query(customerID)
+		defer rows.Close()
 
-			json.NewEncoder(w).Encode(customerData)
+		customReadingsList := myReadings{}
+		var customerReadings Readings
+
+		if dbErr != nil {
+			fmt.Println("unable to query user data", customerID, dbErr)
+		} else {
+			for rows.Next() {
+
+				err := rows.Scan(&customerReadings.MeasureID, &customerReadings.MeasureDate, &customerReadings.MeasureValue)
+				if err != nil {
+					log.Fatal(err)
+				}
+				// https://stackoverflow.com/questions/18042439/go-append-to-slice-in-struct
+				customReadingsList.AddItem(customerReadings)
+			}
+			json.NewEncoder(w).Encode(customReadingsList)
 		}
 	}
 
