@@ -140,7 +140,7 @@ func handleRequests() {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func loadDatabaseIntoMemory() {
+func loadCustomerDataIntoMemory() {
 	// Load the customer data into cached
 	stmtOut, dbErr := db.Prepare("SELECT * FROM Customers;")
 	if dbErr != nil {
@@ -178,6 +178,77 @@ func loadDatabaseIntoMemory() {
 		}
 		fmt.Println("Finished cache creation for customer data.")
 	}
+
+}
+
+func loadReadingsDataIntoMemory() {
+	// Load the readings data into cache
+
+	// Does not work, we need this user by user
+
+	stmtOut, dbErr := db.Prepare("SELECT DISTINCT Customers_ID_FK FROM Readings;")
+	if dbErr != nil {
+		fmt.Println("Error while creating the sql statement")
+	}
+	defer stmtOut.Close()
+
+	// Query the customer id store it in customerdata
+	rows, dbErr := stmtOut.Query()
+	defer rows.Close()
+
+	if dbErr != nil {
+		fmt.Println("unable to query user ids for caching memcached", dbErr)
+	} else {
+		// Load the user ids
+		for rows.Next() {
+			customReadingsList := myReadings{}
+			var customerReadings Readings
+			var customerID int
+
+			err := rows.Scan(&customerID)
+			if err != nil {
+				// log.Fatal(err)
+				fmt.Println("Could not parse user id")
+				continue
+			}
+
+			// stmtOut, dbErr := db.Prepare("SELECT DISTINCT Customers_ID_FK FROM Readings;")
+			stmtOut, dbErr := db.Prepare("SELECT Measure_ID, Measure_Date, Value FROM Readings where Customers_ID_FK = ?;")
+			if dbErr != nil {
+				fmt.Println("Error while creating the sql statement")
+			}
+			defer stmtOut.Close()
+
+			// Query the customer id store it in customerdata
+			readingRows, dbErr := stmtOut.Query(customerID)
+			defer rows.Close()
+
+			if dbErr != nil {
+				fmt.Println("unable to query user ids for caching memcached", dbErr)
+			} else {
+				for readingRows.Next() {
+					// IDFK, MeasureID, Date, Value
+					err := readingRows.Scan(&customerReadings.MeasureID, &customerReadings.MeasureDate, &customerReadings.MeasureValue)
+					if err != nil {
+						log.Fatal(err)
+					}
+					// https://stackoverflow.com/questions/18042439/go-append-to-slice-in-struct
+					customReadingsList.AddItem(customerReadings)
+				}
+				// Save the loaded data to memcached by converting it to json: https://stackoverflow.com/questions/8270816/converting-go-struct-to-json
+				b, err := json.Marshal(customReadingsList)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				// Format the key and
+				key := fmt.Sprintf("customerReadings_id_%d", customerID)
+				//  Save the data to memcached servers
+				mc.Set(&memcache.Item{Key: key, Value: []byte(b)})
+			}
+		}
+	}
+	fmt.Println("Finished cache creation for customer readings.")
 }
 
 func initSetup() {
@@ -196,7 +267,11 @@ func initSetup() {
 	}
 
 	// Load all from the db into memcached
-	loadDatabaseIntoMemory()
+	loadCustomerDataIntoMemory()
+	loadReadingsDataIntoMemory()
+
+	// Print when ready to serve
+	fmt.Println("Ready to serve traffic...")
 }
 
 func main() {
