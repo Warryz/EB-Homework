@@ -1,7 +1,5 @@
 package main
 
-// See: https://github.com/TutorialEdge/create-rest-api-in-go-tutorial
-
 import (
 	"database/sql"
 	"encoding/json"
@@ -59,35 +57,48 @@ func returnCustomerData(w http.ResponseWriter, r *http.Request) {
 	if parseErr != nil {
 		println("dbError while parsing a customer id!")
 	} else {
-		// Prepare statement for reading data
-		stmtOut, dbErr := db.Prepare("SELECT Measure_ID, Measure_Date, Value FROM Readings WHERE Customers_ID_FK = ?;")
-		if dbErr != nil {
-			fmt.Println("Error while creating the sql statement")
-		}
-		defer stmtOut.Close()
+		// Try reading the data from the memcached server
+		key := fmt.Sprintf("customerReadings_id_%d", customerID)
 
-		// Query the customer id store it in customerdata
+		// mc.Get(&memcache.Item{Key: key, Value: []byte(b)})
+		it, memErr := mc.Get(key)
+		if memErr != nil {
+			fmt.Printf("No data for customer id %d in memcached: %s", customerID, memErr)
 
-		rows, dbErr := stmtOut.Query(customerID)
-		defer rows.Close()
-
-		customReadingsList := myReadings{}
-		var customerReadings Readings
-
-		if dbErr != nil {
-			fmt.Println("unable to query user data", customerID, dbErr)
-		} else {
-			for rows.Next() {
-
-				err := rows.Scan(&customerReadings.MeasureID, &customerReadings.MeasureDate, &customerReadings.MeasureValue)
-				if err != nil {
-					log.Fatal(err)
-				}
-				// https://stackoverflow.com/questions/18042439/go-append-to-slice-in-struct
-				customReadingsList.AddItem(customerReadings)
+			// Prepare statement for reading data
+			stmtOut, dbErr := db.Prepare("SELECT Measure_ID, Measure_Date, Value FROM Readings WHERE Customers_ID_FK = ?;")
+			if dbErr != nil {
+				fmt.Println("Error while creating the sql statement")
 			}
-			json.NewEncoder(w).Encode(customReadingsList)
+			defer stmtOut.Close()
+
+			// Query the customer id store it in customerdata
+
+			rows, dbErr := stmtOut.Query(customerID)
+			defer rows.Close()
+
+			customReadingsList := myReadings{}
+			var customerReadings Readings
+
+			if dbErr != nil {
+				fmt.Println("unable to query user data", customerID, dbErr)
+			} else {
+				for rows.Next() {
+
+					err := rows.Scan(&customerReadings.MeasureID, &customerReadings.MeasureDate, &customerReadings.MeasureValue)
+					if err != nil {
+						log.Fatal(err)
+					}
+					// https://stackoverflow.com/questions/18042439/go-append-to-slice-in-struct
+					customReadingsList.AddItem(customerReadings)
+				}
+				json.NewEncoder(w).Encode(customReadingsList)
+			}
+		} else {
+			// Output the memcached data.
+			w.Write(it.Value)
 		}
+
 	}
 
 }
