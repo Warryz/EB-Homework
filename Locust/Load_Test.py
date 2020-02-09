@@ -7,7 +7,7 @@ print(randrange(10))
 
 # Opening the website http://example.com/Hausarbeit
 def index(l):
-    l.client.get(f'/customerdata/{randrange(4500)}')
+    l.client.get(f'/customerdata/{randrange(1, 4500)}')
     # print("Accessing the website.")
 
 class UserBehavior(TaskSet):
