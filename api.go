@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -132,7 +133,7 @@ func returnCustomer(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func handleRequests() {
+func handleRequests(webserverPort int) {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
 	myRouter.HandleFunc("/customer/{id}", returnCustomer)
@@ -140,14 +141,14 @@ func handleRequests() {
 
 	// Needed to disable connection timeouts
 	srv := &http.Server{
-		Addr:         ":10000",
+		Addr:         fmt.Sprintf(":%d", webserverPort),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Handler:      myRouter,
 	}
 
 	srv.SetKeepAlivesEnabled(false)
-
+	fmt.Printf("Starting webserver on port: %d", webserverPort)
 	log.Fatal(srv.ListenAndServe())
 }
 
@@ -286,6 +287,10 @@ func initSetup() {
 }
 
 func main() {
+	// Port flag
+	portPtr := flag.Int("port", 10000, "Port for the webserver to start")
+	flag.Parse()
+
 	initSetup()
-	handleRequests()
+	handleRequests(*portPtr)
 }
